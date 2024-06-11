@@ -10,13 +10,13 @@ Download_data <- function() {
 }
 
 # Preprocess participant data
-Preprocess_file <- function(id) {
+Preprocess_file <- function(id, condition) {
   # Read file for participant id
   filename <- sprintf('data/%s_performance.csv', id) 
   df <- read.csv(filename, stringsAsFactors = FALSE)
   
   # Extract relevant data 
-  idx <- which(df$label == 'stl-target-rotation')
+  idx <- which(df$label == condition)
   response <- df$reachdeviation_deg[idx + 1] - df$reachdeviation_deg[idx - 1]
   rotation <- df$rotation[idx]
   
@@ -34,15 +34,15 @@ Preprocess_file <- function(id) {
   # Normalize data
   output$response[which(output$rotation > 0)] <- -1 * output$response[which(output$rotation > 0)]
   output$rotation[which(output$rotation < 0)] <- -1 * output$rotation[which(output$rotation < 0)]
+  # 
+  # # Use aggregate to calculate the mean for each rotation value
+  # result_mean <- aggregate(response ~ rotation, data = output, mean)
+  # result_median <- aggregate(response ~ rotation, data = output, median)
+  # 
+  # # Store both "output" and "result" data frames in a list
+  # processed_data <- list(output = output, result_mean = result_mean, result_median = result_median)
   
-  # Use aggregate to calculate the mean for each rotation value
-  result_mean <- aggregate(response ~ rotation, data = output, mean)
-  result_median <- aggregate(response ~ rotation, data = output, median)
-  
-  # Store both "output" and "result" data frames in a list
-  processed_data <- list(output = output, result_mean = result_mean, result_median = result_median)
-  
-  return(processed_data)
+  return(output)
 }
 
 # Function to preprocess data and write to CSV
@@ -102,30 +102,50 @@ RawData_CSV <- function(data_portion = "all", file_name) {
 }
 
 
-# Setup a vector of id strings
-csv_files <- list.files("data", pattern = "_performance.csv", full.names = TRUE)
-
-# Create an empty list to store identifiers
-identifiers_list <- list()
-
-# Loop through each CSV file and extract the identifier
-for (file in csv_files) {
-  # Extract the identifier (xxxxxx) from the file name
-  identifier <- gsub("_performance.csv", "", basename(file))
+getidentifiers <- function() {
   
-  # Add the identifier to the list
-  identifiers_list[[identifier]] <- identifier
-}
-
-Preprocess_all_files <- function(identifiers_list) {
-  processed_data_list <- list()
+  # Setup a vector of id strings
+  csv_files <- list.files("data", pattern = "_performance.csv", full.names = TRUE)
   
-  for (identifier in identifiers_list) {
-    processed_data <- Preprocess_file(identifier)
-    processed_data_list[[identifier]] <- processed_data
+  # Create an empty list to store identifiers
+  identifiers_list <- c()
+  
+  # Loop through each CSV file and extract the identifier
+  for (file in csv_files) {
+    # Extract the identifier (xxxxxx) from the file name
+    identifier <- gsub("_performance.csv", "", basename(file))
+    
+    # Add the identifier to the list
+    identifiers_list <- c(identifiers_list, identifier)
   }
   
-  return(processed_data_list)
+  return(identifiers_list)
+  
+}
+
+
+Preprocess_all_files <- function() {
+  
+  triallabels <- c('stl-target-rotation', 'stl-arc-rotation')
+  identifiers <- getidentifiers()
+  for (condition in triallabels) {
+    
+    condition_data <- NA
+    
+    for (identifier in identifiers) {
+      processed_data <- Preprocess_file(identifier, condition)
+      if (is.data.frame(condition_data)) {
+        condition_data <- rbind(condition_data, processed_data)
+      } else {
+        condition_data <- processed_data
+      }
+    }
+    write.csv( x= condition_data,
+               file= sprintf('data/%s.csv', condition),
+               quote=FALSE,
+               row.names =FALSE) 
+  }
+
 }
 
 # STL Prediction Function
@@ -480,5 +500,5 @@ ggplot(data, aes(x = rotations, y = predictions, group = participant)) +
        x = "Rotations in Degrees(°)",
        y = "Predicted Adaptation in Degrees(°)") +
   theme_minimal() +
-  geom_vline(xintercept = vert_line, linetype = "dotted", color = "black")    
+  geom_vline(xintercept = vert_line, linetype = "dotted", color = "black") 
 }   
