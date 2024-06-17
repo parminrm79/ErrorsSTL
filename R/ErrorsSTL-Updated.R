@@ -441,7 +441,7 @@ STLExponentialModel <- function(participants_results, mode = 'learning', setN0 =
 # Function to plot a participant's observed STL reach data along with average & predicted deviation lines
 PlotReachdata <- function(identifiers_list, filename, predictions_data) {
   
-  dir_path <- "C:/Users/prahi/Desktop/ErrorsSTL-MSc/ErrorsSTL/Plots/"
+  dir_path <- "C:/Users/prahi/Desktop/ErrorsSTL-MSc/ErrorsSTL/doc/"
   
   pdf_name <- paste0(dir_path, filename, "_Reach_Data.pdf")
   
