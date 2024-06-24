@@ -570,5 +570,78 @@ STLPredictPlot <- function(data, vert_line = NULL, main){
   
   print(p)  # Ensure the plot is printed
 }
-  
 
+  # Function to plot Arc-Circle Plots
+> PlotReachdata <- function(identifiers_list, filename, predictions_data) {
+  
+  dir_path <- "C:/Users/prahi/Desktop/ErrorsSTL-MSc/ErrorsSTL/doc/"
+  
+  pdf_name <- paste0(dir_path, filename, "_Reach_Data.pdf")
+  
+  if (!dir.exists(dir_path)) {
+    dir.create(dir_path, recursive = TRUE)
+  }
+  
+  pdf(pdf_name, width = 8.5, height = 11)  # Open PDF device
+  
+  
+  data_file <- read.csv("C:/Users/prahi/Desktop/ErrorsSTL-MSc/ErrorsSTL/raw_arc.csv", stringsAsFactors = FALSE)
+  }
+  
+# Initialize a list to store plots
+plot_list <- list()
+
+# Loop through each participant
+for (identifier in identifiers_list) {
+  # Extract data for the current participant from the data file
+  participant_data <- data_file[data_file$Participant_ID == identifier, ]
+  
+  # Extract rotations and deviations
+  rotations <- participant_data$Rotation
+  deviations <- participant_data$Response
+  
+  # Calculate Mean Deviation per rotation value
+  mean_deviation <- participant_data %>%
+    group_by(Rotation) %>%
+    summarize(mean_deviation = mean(Response))
+  
+  # Extract predicted data for the current participant
+  participant_predictions <- predictions_data %>%
+    filter(participant == identifier)
+  
+  p <- ggplot(participant_data, aes(x = Rotation, y = Response)) +
+    
+    # Plot predicted data points with blue line
+    geom_line(data = participant_predictions, aes(x = rotations, y = predictions_arc), color = "blue", alpha = 0.6) +
+    # Plot predicted data points with blue line
+    geom_line(data = participant_predictions, aes(x = rotations, y = predictions_circle), color = "red", alpha = 0.6) +
+    # Plot the difference with green line
+    geom_line(data = participant_predictions, aes(x = rotations, y = predictions_diff), color = "green", alpha = 0.6) +
+    
+    # Add a dotted grey line at y = 0
+    geom_hline(yintercept = 0, linetype = "dotted", color = "grey") + 
+    
+    labs(title = identifier,
+         x = "Rotation in Degrees(°)",
+         y = "Deviation in Degrees(°)") +
+    theme_minimal() +
+    theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+  
+  # Add the plot to the list
+  plot_list <- c(plot_list, list(p))
+  
+  # If we have 6 plots, print them to a single page
+  if (length(plot_list) == 6) {
+    do.call(grid.arrange, c(plot_list, ncol = 3, nrow = 2))
+    plot_list <- list()  # Reset the list
+  }
+}
+
+# If there are remaining plots not yet printed, print them on the last page
+if (length(plot_list) > 0) {
+  do.call(grid.arrange, c(plot_list, ncol = 3, nrow = 2))
+}
+
+dev.off()  # Close PDF device
+
+> PlotReachdata(identifiers_list, filename = "Arc - Circle Predictions", predictions_data = combined_predictions)
