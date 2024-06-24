@@ -642,14 +642,17 @@ STLscatter <- function(data, xax, yax, col, by, title){
   pdf_name <- paste0(dir_path, "/", title, ".pdf")
   
   # Reshape the data based on the `by` argument
-  # Reshape the data based on the `by` argument
   reshaped_data <- data %>%
     select(participant, !!sym(by), condition) %>%
     pivot_wider(names_from = condition, values_from = !!sym(by))
   
+  # Calculate the slope for the regression line that passes through the origin
+  slope <- sum(reshaped_data[[xax]] * reshaped_data[[yax]]) / sum(reshaped_data[[xax]]^2)
+  
   # Define the plot
-  plot <- ggplot(reshaped_data, aes(x = !!sym(xax), y = !!sym(yax), color = "black")) +
-    geom_point(color ="black") +
+  plot <- ggplot(reshaped_data, aes(x = !!sym(xax), y = !!sym(yax))) +
+    geom_point(color = col) +
+    geom_abline(intercept = 0, slope = slope, linetype = "dashed", color = "red") + # Add the regression line through the origin
     geom_abline(intercept = 0, slope = 1, linetype = "dotted", color = "grey") +
     labs(title = title,
          x = xax,
@@ -660,27 +663,9 @@ STLscatter <- function(data, xax, yax, col, by, title){
   ggsave(pdf_name, plot = plot, width = 8.5, height = 11)
 }
 
-STLPlotPredictions <- function(data, vert_line = NULL, xax, yax, col, title) {
-  dir_path <- "C:/Users/prahi/Desktop/ErrorsSTL-MSc/ErrorsSTL/doc"
-  
-  if (!dir.exists(dir_path)) {
-    dir.create(dir_path, recursive = TRUE)
-  }
-  
-  pdf_name <- paste0(dir_path, "/", title, ".pdf")
-  
-  # Define the plot
-  plot <- ggplot(data, aes(x = !!sym(xax), y = !!sym(yax), group = participant)) +
-    geom_line(color = col) +
-    labs(title = title,
-         x = xax,
-         y = yax) +
-    theme_minimal() +
-    geom_vline(xintercept = vert_line, linetype = "dotted", color = "black")  
-  
-  # Save the plot as a PDF
-  ggsave(pdf_name, plot = plot, width = 8.5, height = 11)
-}
+
+
+
 
 
 > PlotReachdata(identifiers_list, filename = "Arc - Circle Predictions", predictions_data = combined_predictions)
