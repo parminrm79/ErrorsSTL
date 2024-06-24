@@ -2,6 +2,7 @@ library(Reach)
 library(optimx)
 library(dplyr)
 library(ggplot2)
+library(tidyr)
 
 Download_data <- function() {
   Reach::downloadOSFdata(repository='6m24e',
@@ -36,13 +37,6 @@ Preprocess_file <- function(id, condition) {
   # Normalize data
   output$response[which(output$rotation > 0)] <- -1 * output$response[which(output$rotation > 0)]
   output$rotation[which(output$rotation < 0)] <- -1 * output$rotation[which(output$rotation < 0)]
-  # 
-  # # Use aggregate to calculate the mean for each rotation value
-  # result_mean <- aggregate(response ~ rotation, data = output, mean)
-  # result_median <- aggregate(response ~ rotation, data = output, median)
-  # 
-  # # Store both "output" and "result" data frames in a list
-  # processed_data <- list(output = output, result_mean = result_mean, result_median = result_median)
   
   return(output)
 }
@@ -341,7 +335,7 @@ STLindividualConditionFits <- function() {
 # Returns a single (or weighted) set of STL Fit parameters for a set of participant data
 STLFit <- function(participant, data) {
   # Read raw data from CSV
-  #data <- read.csv(data_file)
+  #data <- read.csv(data)
   
   # If participant is a single ID, convert it to a list
   if (!is.vector(participant)) {
@@ -352,15 +346,15 @@ STLFit <- function(participant, data) {
   all_data <- NA
   for (id in participant) {
     if (is.data.frame(all_data)) {
-      all_data <- rbind(all_data, data[which(data$Participant_ID == id),])
+      all_data <- rbind(all_data, data[which(data$participant == id),])
     } else {
-      all_data <- data[which(data$Participant_ID == id),]
+      all_data <- data[which(data$participant == id),]
     }
   }
   
   # Extract rotations and deviations from combined data
-  rotations <- all_data$Rotation
-  deviations <- all_data$Response
+  rotations <- all_data$rotation
+  deviations <- all_data$response
   
   # Run grid search to find best parameters
   top_parameters <- STLGridsearch(rotations, deviations)
@@ -438,12 +432,11 @@ STLExponentialModel <- function(participants_results, mode = 'learning', setN0 =
   return(all_plot_data)
 }
 
-# Function to plot a participant's observed STL reach data along with average & predicted deviation lines
-PlotReachdata <- function(identifiers_list, filename, predictions_data) {
+PlotReachdata <- function(identifiers_list, filename, predictions_data, condition) {
   
-  dir_path <- "C:/Users/prahi/Desktop/ErrorsSTL-MSc/ErrorsSTL/doc/"
+  dir_path <- "C:/Users/prahi/Desktop/ErrorsSTL-MSc/ErrorsSTL/doc"
   
-  pdf_name <- paste0(dir_path, filename, "_Reach_Data.pdf")
+  pdf_name <- paste0(dir_path, "/", filename, ".pdf")
   
   if (!dir.exists(dir_path)) {
     dir.create(dir_path, recursive = TRUE)
@@ -451,38 +444,31 @@ PlotReachdata <- function(identifiers_list, filename, predictions_data) {
   
   pdf(pdf_name, width = 8.5, height = 11)  # Open PDF device
   
-  
-  data_file <- read.csv("C:/Users/prahi/Desktop/ErrorsSTL-MSc/ErrorsSTL/raw_arc.csv", stringsAsFactors = FALSE)
- 
   # Initialize a list to store plots
   plot_list <- list()
-   
+  
   # Loop through each participant
   for (identifier in identifiers_list) {
-    # Extract data for the current participant from the data file
-    participant_data <- data_file[data_file$Participant_ID == identifier, ]
-    
-    # Extract rotations and deviations
-    rotations <- participant_data$Rotation
-    deviations <- participant_data$Response
+    # Extract data for the current participant using the Preprocess_file function
+    participant_data <- Preprocess_file(identifier, condition)
     
     # Calculate Mean Deviation per rotation value
     mean_deviation <- participant_data %>%
-      group_by(Rotation) %>%
-      summarize(mean_deviation = mean(Response))
+      group_by(rotation) %>%
+      summarize(mean_deviation = mean(response))
     
     # Extract predicted data for the current participant
     participant_predictions <- predictions_data %>%
       filter(participant == identifier)
     
-    p <- ggplot(participant_data, aes(x = Rotation, y = Response)) +
+    p <- ggplot(participant_data, aes(x = rotation, y = response)) +
       geom_point(color = "black") +
       
       # Plot mean data points with red line
-      geom_line(data = mean_deviation, aes(x = Rotation, y = mean_deviation), color = "red", alpha = 0.6) +
+      geom_line(data = mean_deviation, aes(x = rotation, y = mean_deviation), color = "red", alpha = 0.6) +
       
       # Plot predicted data points with blue line
-      geom_line(data = participant_predictions, aes(x = rotations, y = predictions), color = "blue", alpha = 0.6) +
+      geom_line(data = participant_predictions, aes(x = rotations, y = participant_predictions[[3]]), color = "blue", alpha = 0.6) +
       
       # Add a dotted grey line at y = 0
       geom_hline(yintercept = 0, linetype = "dotted", color = "grey") +    
@@ -572,7 +558,7 @@ STLPredictPlot <- function(data, vert_line = NULL, main){
 }
 
   # Function to plot Arc-Circle Plots
-> PlotReachdata <- function(identifiers_list, filename, predictions_data) {
+PlotConditionPredictions <- function(identifiers_list, filename, predictions_data) {
   
   dir_path <- "C:/Users/prahi/Desktop/ErrorsSTL-MSc/ErrorsSTL/doc/"
   
@@ -586,62 +572,115 @@ STLPredictPlot <- function(data, vert_line = NULL, main){
   
   
   data_file <- read.csv("C:/Users/prahi/Desktop/ErrorsSTL-MSc/ErrorsSTL/raw_arc.csv", stringsAsFactors = FALSE)
-  }
   
-# Initialize a list to store plots
-plot_list <- list()
+  
+  # Initialize a list to store plots
+  plot_list <- list()
 
-# Loop through each participant
-for (identifier in identifiers_list) {
-  # Extract data for the current participant from the data file
-  participant_data <- data_file[data_file$Participant_ID == identifier, ]
+  # Loop through each participant
+  for (identifier in identifiers_list) {
+    # Extract data for the current participant from the data file
+    participant_data <- data_file[data_file$Participant_ID == identifier, ]
   
-  # Extract rotations and deviations
-  rotations <- participant_data$Rotation
-  deviations <- participant_data$Response
+    # Extract rotations and deviations
+    rotations <- participant_data$Rotation
+    deviations <- participant_data$Response
   
-  # Calculate Mean Deviation per rotation value
-  mean_deviation <- participant_data %>%
-    group_by(Rotation) %>%
-    summarize(mean_deviation = mean(Response))
+    # Calculate Mean Deviation per rotation value
+    mean_deviation <- participant_data %>%
+      group_by(Rotation) %>%
+      summarize(mean_deviation = mean(Response))
   
-  # Extract predicted data for the current participant
-  participant_predictions <- predictions_data %>%
-    filter(participant == identifier)
+    # Extract predicted data for the current participant
+    participant_predictions <- predictions_data %>%
+      filter(participant == identifier)
   
-  p <- ggplot(participant_data, aes(x = Rotation, y = Response)) +
+    p <- ggplot(participant_data, aes(x = Rotation, y = Response)) +
     
-    # Plot predicted data points with blue line
-    geom_line(data = participant_predictions, aes(x = rotations, y = predictions_arc), color = "blue", alpha = 0.6) +
-    # Plot predicted data points with blue line
-    geom_line(data = participant_predictions, aes(x = rotations, y = predictions_circle), color = "red", alpha = 0.6) +
-    # Plot the difference with green line
-    geom_line(data = participant_predictions, aes(x = rotations, y = predictions_diff), color = "green", alpha = 0.6) +
+      # Plot predicted data points with blue line
+      geom_line(data = participant_predictions, aes(x = rotations, y = predictions_arc), color = "blue", alpha = 0.6) +
+      # Plot predicted data points with blue line
+      geom_line(data = participant_predictions, aes(x = rotations, y = predictions_circle), color = "red", alpha = 0.6) +
+      # Plot the difference with green line
+      geom_line(data = participant_predictions, aes(x = rotations, y = predictions_diff), color = "green", alpha = 0.6) +
     
-    # Add a dotted grey line at y = 0
-    geom_hline(yintercept = 0, linetype = "dotted", color = "grey") + 
+      # Add a dotted grey line at y = 0
+      geom_hline(yintercept = 0, linetype = "dotted", color = "grey") + 
     
-    labs(title = identifier,
-         x = "Rotation in Degrees(°)",
-         y = "Deviation in Degrees(°)") +
-    theme_minimal() +
-    theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+      labs(title = identifier,
+           x = "Rotation in Degrees(°)",
+           y = "Deviation in Degrees(°)") +
+      theme_minimal() +
+      theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
   
-  # Add the plot to the list
-  plot_list <- c(plot_list, list(p))
+    # Add the plot to the list
+    plot_list <- c(plot_list, list(p))
   
-  # If we have 6 plots, print them to a single page
-  if (length(plot_list) == 6) {
+    # If we have 6 plots, print them to a single page
+    if (length(plot_list) == 6) {
+      do.call(grid.arrange, c(plot_list, ncol = 3, nrow = 2))
+      plot_list <- list()  # Reset the list
+    }
+  }
+
+  # If there are remaining plots not yet printed, print them on the last page
+  if (length(plot_list) > 0) {
     do.call(grid.arrange, c(plot_list, ncol = 3, nrow = 2))
-    plot_list <- list()  # Reset the list
   }
+
+  dev.off()  # Close PDF device
+  
 }
 
-# If there are remaining plots not yet printed, print them on the last page
-if (length(plot_list) > 0) {
-  do.call(grid.arrange, c(plot_list, ncol = 3, nrow = 2))
+STLscatter <- function(data, xax, yax, col, by, title){
+  dir_path <- "C:/Users/prahi/Desktop/ErrorsSTL-MSc/ErrorsSTL/doc"
+  
+  if (!dir.exists(dir_path)) {
+    dir.create(dir_path, recursive = TRUE)
+  }
+  
+  pdf_name <- paste0(dir_path, "/", title, ".pdf")
+  
+  # Reshape the data based on the `by` argument
+  # Reshape the data based on the `by` argument
+  reshaped_data <- data %>%
+    select(participant, !!sym(by), condition) %>%
+    pivot_wider(names_from = condition, values_from = !!sym(by))
+  
+  # Define the plot
+  plot <- ggplot(reshaped_data, aes(x = !!sym(xax), y = !!sym(yax), color = "black")) +
+    geom_point(color ="black") +
+    geom_abline(intercept = 0, slope = 1, linetype = "dotted", color = "grey") +
+    labs(title = title,
+         x = xax,
+         y = yax) +
+    theme_minimal()
+  
+  # Save the plot as a PDF
+  ggsave(pdf_name, plot = plot, width = 8.5, height = 11)
 }
 
-dev.off()  # Close PDF device
+STLPlotPredictions <- function(data, vert_line = NULL, xax, yax, col, title) {
+  dir_path <- "C:/Users/prahi/Desktop/ErrorsSTL-MSc/ErrorsSTL/doc"
+  
+  if (!dir.exists(dir_path)) {
+    dir.create(dir_path, recursive = TRUE)
+  }
+  
+  pdf_name <- paste0(dir_path, "/", title, ".pdf")
+  
+  # Define the plot
+  plot <- ggplot(data, aes(x = !!sym(xax), y = !!sym(yax), group = participant)) +
+    geom_line(color = col) +
+    labs(title = title,
+         x = xax,
+         y = yax) +
+    theme_minimal() +
+    geom_vline(xintercept = vert_line, linetype = "dotted", color = "black")  
+  
+  # Save the plot as a PDF
+  ggsave(pdf_name, plot = plot, width = 8.5, height = 11)
+}
+
 
 > PlotReachdata(identifiers_list, filename = "Arc - Circle Predictions", predictions_data = combined_predictions)
