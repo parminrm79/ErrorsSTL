@@ -663,9 +663,11 @@ STLscatter <- function(data, xax, yax, col, by, title){
   ggsave(pdf_name, plot = plot, width = 8.5, height = 11)
 }
 
+  #Average fits for target based on mean s and w values
+  par <- c(s = 0.427, w = 33.429)
+  TargetPredictions <- STLPredict(par = par, rotations = rotations)
+  TargetPredictions_df <- data.frame(rotations = rotations, predictions = TargetPredictions)
+  View(TargetPredictions_df)
 
-
-
-
-
-> PlotReachdata(identifiers_list, filename = "Arc - Circle Predictions", predictions_data = combined_predictions)
+  #Arc-Circle Predictions
+  PlotReachdata(identifiers_list, filename = "Arc - Circle Predictions", predictions_data = combined_predictions)
